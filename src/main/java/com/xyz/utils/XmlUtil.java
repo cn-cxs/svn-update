@@ -9,12 +9,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class XmlUtil {
+    public static final Set<String> ideaOutDirs = new HashSet<>();
 
     /**
      * @param xmlPath
@@ -149,7 +147,7 @@ public class XmlUtil {
     public static String findOutputPath(String configFile) {
         Path path = Paths.get(configFile);
         if (!Files.exists(path) || Files.isDirectory(path)) {
-            return null;
+            return "";
         }
         Document document = readDocument(path.toString());
         List elements = document.getRootElement().elements();
@@ -159,6 +157,7 @@ public class XmlUtil {
                 Element iter = (Element) elements.get(i);
                 Element element = iter.element("output-path");
                 String text = element.getText();
+                ideaOutDirs.add(text.replaceAll("\\$PROJECT_DIR\\$/", "/"));
                 return text;
             }
         } else {
@@ -172,7 +171,7 @@ public class XmlUtil {
                 }
             }
         }
-        return null;
+        return "";
     }
 
     public static void main(String[] srgs) throws DocumentException, IOException {

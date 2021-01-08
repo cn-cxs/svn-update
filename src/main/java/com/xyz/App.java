@@ -81,6 +81,11 @@ public class App {
                                 FileUtils.copy(f, newp);
                             }*/
                             String newp = copyPath + PathUtils.getRelativePath(workSpace, Paths.get(f).getParent().toString()).replaceAll("/WebRoot/", "/");
+                            Iterator<String> iterator = XmlUtil.ideaOutDirs.stream().iterator();
+                            while (iterator.hasNext()) {
+                                String s = iterator.next();
+                                newp = PathUtils.toPath(newp.replaceAll(s, "/"));
+                            }
                             FileUtils.copy(f, newp);
                         }
                     }

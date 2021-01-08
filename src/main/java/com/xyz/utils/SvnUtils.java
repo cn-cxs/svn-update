@@ -9,6 +9,8 @@ import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 
@@ -18,12 +20,13 @@ public class SvnUtils {
     private String userName; //svn用户名
     private String password; //svn密码
     private SVNRepository repository = null;
-    private String workSpaces  = null;
+    private String workSpaces = null;
 
     class Config {
         final static String _src = "src";
         final static String _java = "java";
         final static String _class = "class";
+        final static String WebRoot = "WebRoot";
     }
 
     public String getUrl() {
@@ -64,7 +67,7 @@ public class SvnUtils {
         this.password = password;
     }
 
-    public Collection filterCommitHistory(Date begin, Date end,boolean isSelf) throws Exception {
+    public Collection filterCommitHistory(Date begin, Date end, boolean isSelf) throws Exception {
         DAVRepositoryFactory.setup();
         try {
             repository = SVNRepositoryFactory.create(SVNURL.parseURIEncoded(url));
@@ -75,8 +78,8 @@ public class SvnUtils {
         ISVNAuthenticationManager authManager = SVNWCUtil.createDefaultAuthenticationManager(userName, password.toCharArray());
         repository.setAuthenticationManager(authManager);
 
-        long startRevision = 0;
-        long endRevision = -1;//表示最后一个版本
+        long startRevision = repository.getDatedRevision(begin);
+        long endRevision = repository.getDatedRevision(end);//表示最后一个版本
         final Collection<SVNLogEntry> history = new ArrayList<>();
         repository.log(new String[]{""},
                 startRevision,
@@ -91,12 +94,7 @@ public class SvnUtils {
                         if (isSelf && !svnlogentry.getAuthor().equals(userName)) {
                             return;
                         }
-                        //依据提交时间进行过滤
-                        if (svnlogentry.getDate().after(begin)
-                                && svnlogentry.getDate().before(end)) {
-                            System.out.println(svnlogentry);
-                            fillResult(svnlogentry);
-                        }
+                        fillResult(svnlogentry);
                     }
 
                     public void fillResult(SVNLogEntry svnlogentry) {
@@ -133,42 +131,42 @@ public class SvnUtils {
         if (configFile == null || !configFile.exists()) {
             return localFiles;
         }
-        String outputPath = XmlUtil.findOutputPath(configFile.getAbsolutePath());
-        String output = outputPath.startsWith("$PROJECT_DIR$/") ? (outputPath.replaceAll("\\$PROJECT_DIR\\$/", workSpaces) + "/WEB-INF/classes/") : (workSpaces + outputPath);
-        output = PathUtils.toPath(output);
+        String outPath = XmlUtil.findOutputPath(configFile.getAbsolutePath());
+        String webRoot = null;
+        if (outPath.startsWith("$PROJECT_DIR$/")) {
+            webRoot = outPath.replaceAll("\\$PROJECT_DIR\\$/", workSpaces);
+        } else if (outPath.startsWith("WebRoot/")) {
+            webRoot = workSpaces + "WebRoot/";
+        } else {
+            System.err.println("未知的输出路径:" + outPath);
+            return localFiles;
+        }
+        webRoot = PathUtils.toPath(webRoot);
         for (Object temp : logEntries) {
             SVNLogEntry logEntry = (SVNLogEntry) temp;
-            //if (this.userName.equals(logEntry.getAuthor())) {//只获取自己提交的部分
-                Map<String, SVNLogEntryPath> cPaths = logEntry.getChangedPaths();
-                Set<String> set = cPaths.keySet();
-                for (String key : set) {
-                    SVNLogEntryPath svnLogEntryPath = cPaths.get(key);
-                    String svnPath = svnLogEntryPath.getPath();
-                    Matcher svnMatcher = Global.project.matcher(svnPath);//正则匹配项目子目录
-                    String localPath = "";
-                    if (svnMatcher.find()) {
-                        //.java替换成.class
-                        if (svnPath.endsWith("." + Config._java) && !svnPath.endsWith("." + Config._class)) {
-                            svnPath = svnPath.replaceAll("." + Config._java, "." + Config._class);
+            Map<String, SVNLogEntryPath> cPaths = logEntry.getChangedPaths();
+            Collection<SVNLogEntryPath> values = cPaths.values();
+            for (SVNLogEntryPath svnLogEntryPath : values) {
+                String svnPath = svnLogEntryPath.getPath();
 
-                        }
-                        Matcher msrc = Global.project_src.matcher(svnPath);
-                        Matcher mwr = Global.project_wr.matcher(svnPath);
-                        if(msrc.find()){
-                            String target = msrc.group();
-                            int index = svnPath.lastIndexOf(target) + target.length() - 1;
-                            localPath = output+ svnPath.substring(index, svnPath.length());//"/src/"目录替换成classes目录
-                        }else if(mwr.find()){
-                            String target = mwr.group();
-                            int index = svnPath.lastIndexOf(target);
-                            localPath = workSpaces+ svnPath.substring(index, svnPath.length());//"/Webroot/"目录替换项目目录
-                        }
-
-
-                        localFiles.add(localPath.replaceAll("\\\\","/"));
-                    }
+                //.java替换成.class
+                if (svnPath.endsWith("." + Config._java)) {
+                    svnPath = svnPath.replaceAll("." + Config._java, "." + Config._class);
                 }
-            //}
+                //src及之前的路径替换为WEB-INF/classes/
+                if (svnPath.lastIndexOf(Config._src + "/") > -1) {
+                    String target = Config._src + "/";
+                    int index = svnPath.lastIndexOf(target);
+                    svnPath = webRoot + "WEB-INF/classes/" + (svnPath.substring(index + target.length()));
+                }
+                //路径/WebRoot直接替换
+                if (svnPath.lastIndexOf(Config.WebRoot + "/") > -1) {
+                    String target = Config.WebRoot + "/";
+                    int index = svnPath.lastIndexOf(target);
+                    svnPath = webRoot + (svnPath.substring(index + target.length()));
+                }
+                localFiles.add(PathUtils.toPath(svnPath));
+            }
         }
         return localFiles;
     }
