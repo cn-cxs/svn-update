@@ -14,6 +14,7 @@ import java.util.Properties;
  */
 public class PropertiesUtils {
 
+    final static Properties prop = new Properties();
 
     /**
      * 根据key读取value
@@ -29,7 +30,6 @@ public class PropertiesUtils {
      * 相对路径就是config/config.properties
      */
     public static String getProperties(String filePath, String keyWord) {
-        Properties prop = new Properties();
         String value = null;
         InputStreamReader is = null;
         BufferedReader bs = null;
@@ -74,7 +74,6 @@ public class PropertiesUtils {
      */
     public static Map<String, String> getProperties(String filePath) {
         Map<String, String> properties = new HashMap<>();
-        Properties prop = new Properties();
         try {
             // 通过输入缓冲流进行读取配置文件
             InputStream InputStream = new BufferedInputStream(new FileInputStream(new File(filePath)));

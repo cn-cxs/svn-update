@@ -31,7 +31,7 @@ public class App {
         System.out.println("======================开始======================");
         try {
             createUpdates();
-            String shell = ShellUtils.buildUpdateShell(PropUtils.getProp(prop, "serverPath"));
+            String shell = ShellUtils.buildUpdateShell(PropertiesUtils.getProperties(prop));
             Path shellFile = Paths.get(crrDir + "update.sh");
             if (!Files.exists(shellFile)) {
                 if (!Files.exists(shellFile.getParent())) {
