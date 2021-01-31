@@ -1,6 +1,7 @@
 package com.xyz.utils;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.util.StringUtils;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -63,6 +64,9 @@ public class WorkSpaceUtils {
     }
 
     public static File findConfigFile(String project) {
+        if(StringUtils.isEmpty(project)){
+            return null;
+        }
         Path path = Paths.get(project);
         if (!Files.exists(path)) {
             return null;

@@ -20,14 +20,6 @@ public class SvnUtils {
     private String userName; //svn用户名
     private String password; //svn密码
     private SVNRepository repository = null;
-    private String workSpaces = null;
-
-    class Config {
-        final static String _src = "src";
-        final static String _java = "java";
-        final static String _class = "class";
-        final static String WebRoot = "WebRoot";
-    }
 
     public String getUrl() {
         return url;
@@ -65,6 +57,10 @@ public class SvnUtils {
         this.url = url;
         this.userName = userName;
         this.password = password;
+    }
+
+    public Collection filterCommitHistory(Date begin, Date end) throws Exception {
+        return filterCommitHistory(begin, end, false);
     }
 
     public Collection filterCommitHistory(Date begin, Date end, boolean isSelf) throws Exception {
@@ -105,71 +101,6 @@ public class SvnUtils {
 
     }
 
-    /**
-     * @param logEntries svn提交记录对象
-     * @param workSpaces 本地项目工作空间,如:D:/Work/WEBWorkSpaces/
-     * @return java.util.List<java.lang.String>
-     * @desc 获取svn目录上对应本地要发版的文件目录
-     * @author cxs
-     * @date 2020-05-09 03:19:33
-     **/
-    public List<String> getLocalFiles(Collection logEntries, String workSpaces) {
-        this.workSpaces = PathUtils.toPath(workSpaces);
-        return getLocalFiles(logEntries);
-    }
-
-    /**
-     * @param logEntries svn提交记录对象
-     * @return java.util.List<java.lang.String>
-     * @desc 获取svn目录上对应本地要发版的文件目录
-     * @author cxs
-     * @date 2020-05-09 03:21:18
-     **/
-    public List<String> getLocalFiles(Collection logEntries) {
-        List<String> localFiles = new ArrayList<>();
-        File configFile = WorkSpaceUtils.findConfigFile(workSpaces);
-        if (configFile == null || !configFile.exists()) {
-            return localFiles;
-        }
-        String outPath = XmlUtil.findOutputPath(configFile.getAbsolutePath());
-        String webRoot = null;
-        if (outPath.startsWith("$PROJECT_DIR$/")) {
-            webRoot = outPath.replaceAll("\\$PROJECT_DIR\\$/", workSpaces);
-        } else if (outPath.startsWith("WebRoot/")) {
-            webRoot = workSpaces + "WebRoot/";
-        } else {
-            System.err.println("未知的输出路径:" + outPath);
-            return localFiles;
-        }
-        webRoot = PathUtils.toPath(webRoot);
-        for (Object temp : logEntries) {
-            SVNLogEntry logEntry = (SVNLogEntry) temp;
-            Map<String, SVNLogEntryPath> cPaths = logEntry.getChangedPaths();
-            Collection<SVNLogEntryPath> values = cPaths.values();
-            for (SVNLogEntryPath svnLogEntryPath : values) {
-                String svnPath = svnLogEntryPath.getPath();
-
-                //.java替换成.class
-                if (svnPath.endsWith("." + Config._java)) {
-                    svnPath = svnPath.replaceAll("." + Config._java, "." + Config._class);
-                }
-                //src及之前的路径替换为WEB-INF/classes/
-                if (svnPath.lastIndexOf(Config._src + "/") > -1) {
-                    String target = Config._src + "/";
-                    int index = svnPath.lastIndexOf(target);
-                    svnPath = webRoot + "WEB-INF/classes/" + (svnPath.substring(index + target.length()));
-                }
-                //路径/WebRoot直接替换
-                if (svnPath.lastIndexOf(Config.WebRoot + "/") > -1) {
-                    String target = Config.WebRoot + "/";
-                    int index = svnPath.lastIndexOf(target);
-                    svnPath = webRoot + (svnPath.substring(index + target.length()));
-                }
-                localFiles.add(PathUtils.toPath(svnPath));
-            }
-        }
-        return localFiles;
-    }
 
     public static void main(String[] args) throws Exception {
        /* String url = PropUtils.getProp("svnUrl");

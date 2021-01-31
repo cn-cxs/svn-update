@@ -29,17 +29,25 @@ public class App {
             prop = PathUtils.toPath(System.getProperty("user.dir")) + prop_file;
         }
         System.out.println("======================开始======================");
-        createUpdates();
-        String shell = ShellUtils.buildUpdateShell(PropUtils.getProp(prop, "serverPath"));
-        Path shellFile = Paths.get(crrDir + "update.sh");
-        if (!Files.exists(shellFile)) {
-            Files.createFile(shellFile);
+        try {
+            createUpdates();
+            String shell = ShellUtils.buildUpdateShell(PropUtils.getProp(prop, "serverPath"));
+            Path shellFile = Paths.get(crrDir + "update.sh");
+            if (!Files.exists(shellFile)) {
+                if (!Files.exists(shellFile.getParent())) {
+                    shellFile.getParent().toFile().mkdirs();
+                }
+                Files.createFile(shellFile);
+            }
+            Files.write(shellFile, shell.getBytes());
+            System.out.println("待更新文件已复制到:" + crrDir);
+            System.out.println("请把" + crrDir + "整个文件夹上传到要更新的服务器,执行:");
+            System.out.println("chomd +x update.sh & ./update.sh");
+            System.out.println("命令即可完成文件备份和更新操作");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        Files.write(shellFile, shell.getBytes());
-        System.out.println("待更新文件已复制到:" + crrDir);
-        System.out.println("请把" + crrDir + "整个文件夹上传到要更新的服务器,执行:");
-        System.out.println("chom +x update.sh & ./update.sh");
-        System.out.println("命令即可完成文件备份和更新操作");
+
         System.out.println("======================结束======================");
     }
 
@@ -47,15 +55,20 @@ public class App {
         final String userName = PropUtils.getProp(prop, "svnUser");
         final String password = PropUtils.getProp(prop, "svnPassword");
         final String workSpace = PropUtils.getProp(prop, "workSpace");
-        final String svnBeginDate = PropUtils.getProp(prop, "svnBeginDate");
-        final String svnEndDate = PropUtils.getProp(prop, "svnEndDate");
         final boolean isSelf = Boolean.parseBoolean(PropUtils.getProp(prop, "isSelf"));
+        final String days = PropUtils.getProp(prop, "days");
+        /*final String svnBeginDate = PropUtils.getProp(prop, "svnBeginDate");
+        final String svnEndDate = PropUtils.getProp(prop, "svnEndDate");
         final Date begin = format.parse(svnBeginDate);
-        final Date end = format.parse(svnEndDate);
+        final Date end = format.parse(svnEndDate);*/
         //yyyy-MM-dd时间格式,结束时间需要+1
         Calendar calendar = Calendar.getInstance();
-        calendar.setTime(end);
-        calendar.add(Calendar.DATE, calendar.get(Calendar.DATE) + 1);
+        calendar.add(Calendar.DATE, Integer.parseInt(days));
+        final Date begin = calendar.getTime();
+        Calendar calendar2 = Calendar.getInstance();
+        calendar2.set(Calendar.DATE, calendar2.get(Calendar.DATE) + 1);
+        final Date end = calendar2.getTime();
+        System.out.printf("检索时间段:%s~%s\r\n", format.format(begin), format.format(end));
         String copyPath = crrDir;
         List<File> projects = WorkSpaceUtils.findProject(workSpace);
         projects.forEach(file -> {
@@ -68,7 +81,8 @@ public class App {
                 SvnUtils svnUtils = new SvnUtils(url, userName, password);
                 try {
                     Collection logEntries = svnUtils.filterCommitHistory(begin, end, isSelf);
-                    List<String> files = svnUtils.getLocalFiles(logEntries, file.getAbsolutePath());
+                    System.out.println(Arrays.toString(logEntries.toArray()));
+                    List<String> files = OutPutFileUtils.getLocalFiles(logEntries, file.getAbsolutePath());
                     for (int i = 0; i < files.size(); i++) {
                         String f = PathUtils.toPath(files.get(i));
                         Path pt = Paths.get(f);
