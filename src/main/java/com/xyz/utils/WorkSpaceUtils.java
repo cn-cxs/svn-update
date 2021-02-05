@@ -64,7 +64,7 @@ public class WorkSpaceUtils {
     }
 
     public static File findConfigFile(String project) {
-        if(StringUtils.isEmpty(project)){
+        if (StringUtils.isEmpty(project)) {
             return null;
         }
         Path path = Paths.get(project);
@@ -90,7 +90,7 @@ public class WorkSpaceUtils {
         //idea配置没有,找eclipse配置
         for (int i = 0; i < files1.length; i++) {
             File ff = files1[i];
-             if (project_eclipse.matcher(ff.getName()).matches()) {
+            if (project_eclipse.matcher(ff.getName()).matches()) {
                 return ff;
             }
         }

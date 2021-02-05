@@ -153,11 +153,12 @@ public class FileUtils6 {
             close(writer, out);
         }
     }
+
     /**
-     * @desc 追加文件
      * @param writeName
      * @param text
      * @return void
+     * @desc 追加文件
      * @author cxs
      * @date 2020-05-09 09:40:25
      **/
@@ -165,7 +166,7 @@ public class FileUtils6 {
         FileWriter writer = null;
         BufferedWriter out = null;
         try {
-            if(!writeName.exists()){
+            if (!writeName.exists()) {
                 writeName.createNewFile(); // 创建新文件,有同名的文件的话直接覆盖
             }
             writer = new FileWriter(writeName);

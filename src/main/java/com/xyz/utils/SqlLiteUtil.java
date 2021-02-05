@@ -11,9 +11,9 @@ import java.util.Map;
 public class SqlLiteUtil {
 
     /**
-     * @desc 根据sqllite数据库文件路径获取JdbcTemplate
      * @param dbUrl
      * @return org.springframework.jdbc.core.JdbcTemplate
+     * @desc 根据sqllite数据库文件路径获取JdbcTemplate
      * @author cxs
      * @date 2021-01-01 07:08:00
      **/

@@ -19,7 +19,7 @@ public class PropUtils {
             String jarWholePath = PropUtils.class.getProtectionDomain().getCodeSource().getLocation().getFile();
             jarWholePath = java.net.URLDecoder.decode(jarWholePath, "UTF-8");
             String jarPath = new File(jarWholePath).getParentFile().getAbsolutePath();
-            String propPath = jarPath + File.separator+ defaultPropFile;
+            String propPath = jarPath + File.separator + defaultPropFile;
             return getAllProp(propPath);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
@@ -52,7 +52,7 @@ public class PropUtils {
                 continue;
             }
             str = str.trim();
-            if (str.startsWith("#")){
+            if (str.startsWith("#")) {
                 continue;
             }
             String[] kv = str.split("=");
@@ -67,7 +67,7 @@ public class PropUtils {
         /*Map props = getAllProp();
         return (String) props.get(key);*/
         File file = new File("./update.conf");
-        return  PropertiesUtils.getProperties(file.getPath(),key);
+        return PropertiesUtils.getProperties(file.getPath(), key);
     }
 
     public static String getProp(String propPath, String key) {

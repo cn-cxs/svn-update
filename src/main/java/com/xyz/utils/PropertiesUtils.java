@@ -35,7 +35,7 @@ public class PropertiesUtils {
         BufferedReader bs = null;
         try {
             // 通过输入缓冲流进行读取配置文件
-            is = new InputStreamReader(new FileInputStream(new File(filePath)),"UTF-8");
+            is = new InputStreamReader(new FileInputStream(new File(filePath)), "UTF-8");
             //bs = new BufferedReader(new InputStreamReader(is));
             // 加载输入流
             prop.load(is);

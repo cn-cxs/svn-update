@@ -1,6 +1,14 @@
 package com.xyz;
 
+import com.xyz.bean.Server;
+import com.xyz.bean.Svn;
 import com.xyz.utils.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.io.File;
@@ -11,66 +19,67 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-/**
- * Hello world!
- */
-public class App {
-    private static String prop = "";//默认配置文件路径
-    private static String prop_file = "update.conf";//默认配置文件路径
-    private static String crrDir = PathUtils.toPath(System.getProperty("user.dir")) + "update/";//当前工作路径
-    final static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
+public class App implements ApplicationRunner {
+    private final static SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+    private static String crrDir = PathUtils.toPath(System.getProperty("user.dir"));//当前工作路径
+    private static String workDir = crrDir + "update/";//文件存放路径
+    private static String properties = "application.properties";//配置文件名称
+    private static String shellFile = "update.sh";//shell脚本名称
+    @Autowired
+    private Svn svn;
 
-    public static void main(String[] args) throws Exception {
+    @Autowired
+    private Server server;
 
-        String newProp = args.length > 0 ? args[0] : null;
-        if (newProp != null && !"".equals(newProp)) {
-            prop = newProp;
-        } else {
-            prop = PathUtils.toPath(System.getProperty("user.dir")) + prop_file;
-        }
+    public static void main(String[] args) {
+        SpringApplication.run(App.class, args);
+
+    }
+
+
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
+        init();
         System.out.println("======================开始======================");
         try {
             createUpdates();
-            String shell = ShellUtils.buildUpdateShell(PropertiesUtils.getProperties(prop));
-            Path shellFile = Paths.get(crrDir + "update.sh");
-            if (!Files.exists(shellFile)) {
-                if (!Files.exists(shellFile.getParent())) {
-                    shellFile.getParent().toFile().mkdirs();
-                }
-                Files.createFile(shellFile);
-            }
-            Files.write(shellFile, shell.getBytes());
+            ShellUtils.buildUpdateShell(workDir,shellFile,server);
+
             System.out.println("待更新文件已复制到:" + crrDir);
             System.out.println("请把" + crrDir + "整个文件夹上传到要更新的服务器,执行:");
-            System.out.println("chomd +x update.sh & ./update.sh");
+            System.out.println("chomd +x "+shellFile+" & ./"+shellFile);
             System.out.println("命令即可完成文件备份和更新操作");
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         System.out.println("======================结束======================");
+        System.exit(0);
     }
 
-    public static void createUpdates() throws ParseException {
-        final String userName = PropUtils.getProp(prop, "svnUser");
-        final String password = PropUtils.getProp(prop, "svnPassword");
-        final String workSpace = PropUtils.getProp(prop, "workSpace");
-        final boolean isSelf = Boolean.parseBoolean(PropUtils.getProp(prop, "isSelf"));
-        final String days = PropUtils.getProp(prop, "days");
-        /*final String svnBeginDate = PropUtils.getProp(prop, "svnBeginDate");
-        final String svnEndDate = PropUtils.getProp(prop, "svnEndDate");
-        final Date begin = format.parse(svnBeginDate);
-        final Date end = format.parse(svnEndDate);*/
-        //yyyy-MM-dd时间格式,结束时间需要+1
-        Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.DATE, Integer.parseInt(days));
-        final Date begin = calendar.getTime();
-        Calendar calendar2 = Calendar.getInstance();
-        calendar2.set(Calendar.DATE, calendar2.get(Calendar.DATE) + 1);
-        final Date end = calendar2.getTime();
+    /**
+     * @param
+     * @return void
+     * @desc 初始化
+     * @author cxs
+     * @date 2021-02-06 12:12:01
+     **/
+    public void init() {
+        //创建工作目录
+        Path dir = Paths.get(workDir);
+        if (!Files.exists(dir)) {
+            dir.toFile().mkdirs();
+        }
+    }
+
+
+    public void createUpdates(){
+        final Date begin = svn.getBeginDate();
+        final Date end = svn.getEndDate();
         System.out.printf("检索时间段:%s~%s\r\n", format.format(begin), format.format(end));
-        String copyPath = crrDir;
-        List<File> projects = WorkSpaceUtils.findProject(workSpace);
+        String copyPath = workDir;
+        List<File> projects = WorkSpaceUtils.findProject(svn.getWorkSpace());
         projects.forEach(file -> {
             String dir = file.getAbsolutePath() + "\\.svn\\wc.db";
             Path path = Paths.get(dir);
@@ -78,9 +87,9 @@ public class App {
                 JdbcTemplate jdbcTemplate = SqlLiteUtil.getJdbcTemplate("jdbc:sqlite:" + dir.replaceAll("\\\\", "/"));
                 List<Map<String, Object>> list = jdbcTemplate.queryForList("select a.root||'/'||(replace(t.repos_path,t.local_relpath,'')) url  from nodes t,repository a limit 1");
                 String url = (String) list.get(0).get("url");
-                SvnUtils svnUtils = new SvnUtils(url, userName, password);
+                SvnUtils svnUtils = new SvnUtils(url, svn.getUserName(), svn.getPassword());
                 try {
-                    Collection logEntries = svnUtils.filterCommitHistory(begin, end, isSelf);
+                    Collection logEntries = svnUtils.filterCommitHistory(begin, end, svn.isSelf());
                     System.out.println(Arrays.toString(logEntries.toArray()));
                     List<String> files = OutPutFileUtils.getLocalFiles(logEntries, file.getAbsolutePath());
                     for (int i = 0; i < files.size(); i++) {
@@ -89,12 +98,7 @@ public class App {
                         if (!Files.exists(pt)) {
                             System.err.println("文件不存在:" + f);
                         } else if (!Files.isDirectory(pt)) {
-                            /*Matcher temp = Global.project.matcher(f);//正则匹配项目子目录
-                            if (temp.find()) {
-                                String newp = copyPath + PathUtils.getRelativePath(workSpace, Paths.get(f).getParent().toString()).replaceAll("/WebRoot/", "/");
-                                FileUtils.copy(f, newp);
-                            }*/
-                            String newp = copyPath + PathUtils.getRelativePath(workSpace, Paths.get(f).getParent().toString()).replaceAll("/WebRoot/", "/");
+                            String newp = copyPath + PathUtils.getRelativePath(svn.getWorkSpace(), Paths.get(f).getParent().toString()).replaceAll("/WebRoot/", "/");
                             Iterator<String> iterator = XmlUtil.ideaOutDirs.stream().iterator();
                             while (iterator.hasNext()) {
                                 String s = iterator.next();
@@ -102,8 +106,7 @@ public class App {
                             }
                             FileUtils.copy(f, newp);
                         }
-                    }
-                    ;
+                    };
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
